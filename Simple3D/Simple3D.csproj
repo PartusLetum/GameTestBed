@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{C02C1DB8-C2B4-44AE-BB09-4637725A9BEE}</ProjectGuid>
+    <ProjectGuid>{1A5BE112-8247-4B97-8A2E-A1C5C6B00F62}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>GameTestBed</RootNamespace>
-    <AssemblyName>GameTestBed</AssemblyName>
+    <RootNamespace>Simple3D</RootNamespace>
+    <AssemblyName>Simple3D</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

@@ -48,8 +48,8 @@ namespace GameTestBed
         private Size viewportSize = new Size(100, 100);
         private float fovDistance = 50.0f;
 
-        private float fovNearDistance = 5.0f;
-        private float fovFarDistance = 30.0f;
+        private float fovNearDistance = 1.0f;
+        private float fovFarDistance = 100.0f;
         private double fovAngleHalved = Math.PI / 4;
         private float focalLength = 0.0f;
 
@@ -128,21 +128,35 @@ namespace GameTestBed
                 new Bitmap(100, 100, CreateGraphics())
             };
 
-            map = new mapvector[6]
+            mapvector[] map1 = new mapvector[8]
+            {
+                new mapvector() { pt = new PointF(50, 90), pen = Pens.Green, height = 5 },
+                new mapvector() { pt = new PointF(90, 70), pen = Pens.Red, height = 5 },
+                new mapvector() { pt = new PointF(90, 60), pen = Pens.Blue, height = 5 },
+                new mapvector() { pt = new PointF(50, 60), pen = Pens.Yellow, height = 5 },
+                new mapvector() { pt = new PointF(50, 10), pen = Pens.Purple, height = 5 },
+                new mapvector() { pt = new PointF(20, 30), pen = Pens.Orange, height = 5 },
+                new mapvector() { pt = new PointF(30, 40), pen = Pens.Cyan, height = 5 },
+                new mapvector() { pt = new PointF(50, 90), pen = Pens.Green, height = 5 }
+            };
+
+            mapvector[] map2 = new mapvector[6]
             {
                 new mapvector() { pt = new PointF(70, 90), pen = Pens.Yellow, height = 5 },
                 new mapvector() { pt = new PointF(70, 20), pen = Pens.Violet, height = 5 },
                 new mapvector() { pt = new PointF(20, 30), pen = Pens.Green, height = 5 },
-                new mapvector() { pt = new PointF(20, 60), pen = Pens.Purple, height = 5, isPortal = true },
+                new mapvector() { pt = new PointF(20, 60), pen = Pens.Purple, height = 5, isPortal = false },
                 new mapvector() { pt = new PointF(40, 90), pen = Pens.Orange, height = 5 },
                 new mapvector() { pt = new PointF(70, 90), pen = Pens.Ivory, height = 5 }
             };
 
-            map = new mapvector[2]
+            mapvector[] map3 = new mapvector[2]
             {
                 new mapvector() { pt = new PointF(50, 50 + (50 / 2.0f)), pen = Pens.Yellow, height = 5.0f },
                 new mapvector() { pt = new PointF(50, 50 - (50 / 2.0f)), pen = Pens.Yellow, height = 5.0f }
             };
+
+            map = map1;
 
             Size = new Size(640, 400);
         }
@@ -176,14 +190,18 @@ namespace GameTestBed
 
             if (keyStatus.FOVUp)
                 fovAngleHalved += 0.01f;
+                //fovFarDistance += 0.1f;
             if (keyStatus.FOVDown)
                 fovAngleHalved -= 0.01f;
+                //fovFarDistance -= 0.1f;
 
-            if (fovAngleHalved < 0) { fovAngleHalved = 0; };
+            if (fovAngleHalved < 0.1f) { fovAngleHalved = 0.1f; };
+            if (fovAngleHalved > Math.PI / 3) { fovAngleHalved = Math.PI / 3; };
 
             // Canvas Size = tan(theta / 2) * Distance to Canvas
             focalLength = (50.0f) / (float)Math.Tan(fovAngleHalved);
-            fovFarDistance = focalLength;
+            //fovFarDistance = focalLength;
+            //fovFarDistance = 80.0f;
 
             if (playerWorldOrientation < 0)
                 playerWorldOrientation = (2 * Math.PI) + playerWorldOrientation;
@@ -192,6 +210,9 @@ namespace GameTestBed
 
             playerDirectionVector = Rotate2D(new PointF(1.0f, 0.0f), playerWorldOrientation);
             playerStrafeVector = Rotate2D(new PointF(0.0f, 1.0f), playerWorldOrientation);
+
+            //Console.WriteLine("{0}", playerWorldLocation.ToString());
+            //Console.ReadKey();
         }
 
         private void DoRender()
@@ -200,6 +221,10 @@ namespace GameTestBed
 
             g = Graphics.FromImage(ScreenBuffer);
             g.Clear(Color.Black);
+
+            float xOffset = 50;
+            float yOffset = 50;
+            PointF screenOffset = new PointF(xOffset, yOffset);
 
             // The end coordinates for the line segment representing a "wall"
             float vx1 = 70; float vy1 = 20;
@@ -216,7 +241,9 @@ namespace GameTestBed
             Line AB = new Line();
             Line FOV_AB = new Line();
             Line FOV_CD = new Line();
-                
+
+            PointF a, b;
+
             //
             // Draw the absolute map
             //
@@ -224,15 +251,19 @@ namespace GameTestBed
             g = Graphics.FromImage(viewport[0]);
             g.Clear(Color.Black);
 
-            float fovNearX1 = (float)(Math.Cos(angle - fovAngleHalved) * fovNearDistance);
-            float fovNearY1 = (float)(Math.Sin(angle - fovAngleHalved) * fovNearDistance);
-            float fovNearX2 = (float)(Math.Cos(angle + fovAngleHalved) * fovNearDistance);
-            float fovNearY2 = (float)(Math.Sin(angle + fovAngleHalved) * fovNearDistance);
+            float length;
 
-            float fovFarX1 = (float)(Math.Cos(angle - fovAngleHalved) * fovFarDistance);
-            float fovFarY1 = (float)(Math.Sin(angle - fovAngleHalved) * fovFarDistance);
-            float fovFarX2 = (float)(Math.Cos(angle + fovAngleHalved) * fovFarDistance);
-            float fovFarY2 = (float)(Math.Sin(angle + fovAngleHalved) * fovFarDistance);
+            length = (float)Math.Abs(fovNearDistance / Math.Cos(fovAngleHalved));
+            float fovNearX1 = (float)(Math.Cos(angle - fovAngleHalved) * length);
+            float fovNearY1 = (float)(Math.Sin(angle - fovAngleHalved) * length);
+            float fovNearX2 = (float)(Math.Cos(angle + fovAngleHalved) * length);
+            float fovNearY2 = (float)(Math.Sin(angle + fovAngleHalved) * length);
+
+            length = (float)Math.Abs(fovFarDistance / Math.Cos(fovAngleHalved));
+            float fovFarX1 = (float)(Math.Cos(angle - fovAngleHalved) * length);
+            float fovFarY1 = (float)(Math.Sin(angle - fovAngleHalved) * length);
+            float fovFarX2 = (float)(Math.Cos(angle + fovAngleHalved) * length);
+            float fovFarY2 = (float)(Math.Sin(angle + fovAngleHalved) * length);
 
             FOV_AB.pt1.X = fovNearX1 + px; FOV_AB.pt1.Y = fovNearY1 + py;
             FOV_AB.pt2.X = fovFarX1 + px; FOV_AB.pt2.Y = fovFarY1 + py;
@@ -241,26 +272,31 @@ namespace GameTestBed
 
             PointF n1 = Normalise(new PointF(-(FOV_AB.pt2.Y - FOV_AB.pt1.Y), (FOV_AB.pt2.X - FOV_AB.pt1.X)));
             PointF n2 = Normalise(new PointF((FOV_CD.pt2.Y - FOV_CD.pt1.Y), -(FOV_CD.pt2.X - FOV_CD.pt1.X)));
+            PointF n3 = Normalise(new PointF(-(FOV_AB.pt1.Y - FOV_CD.pt1.Y), (FOV_AB.pt1.X - FOV_CD.pt1.X)));
+            PointF n4 = Normalise(new PointF((FOV_AB.pt2.Y - FOV_CD.pt2.Y), -(FOV_AB.pt2.X - FOV_CD.pt2.X)));
 
             for (int i = 0; i < map.Length - 1; i ++)
             {
                 vx1 = map[i].pt.X; vy1 = map[i].pt.Y; vx2 = map[i + 1].pt.X; vy2 = map[i + 1].pt.Y;
 
                 AB.pt1.X = vx1; AB.pt1.Y = vy1; AB.pt2.X = vx2; AB.pt2.Y = vy2;
-                PointF? t = LineIntersection2D(AB, FOV_AB, n1);
-                lir1 = Intersect2D(FOV_AB, AB);
-                PointF? t2 = LineIntersection2D(AB, FOV_CD, n2);
-                lir2 = Intersect2D(FOV_CD, AB);
+                //Line? t = LineIntersection2D(AB, FOV_AB, n1);
+                //t = LineIntersection2D(t, FOV_CD, n2);
+                //t = LineIntersection2D(t, new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 }, n3);
+                //t = LineIntersection2D(t, new Line() { pt1 = FOV_AB.pt2, pt2 = FOV_CD.pt2 }, n4);
+
+                Line[] hull = 
+                {
+                    FOV_AB, new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 },
+                    FOV_CD, new Line() { pt1 = FOV_AB.pt2, pt2 = FOV_CD.pt2 }
+                };
+                PointF[] normals = { n1, n3, n2, n4 };
+
+                Line? t = LineIntersection2D(AB, hull, normals, 4);
 
                 PointF nAB = Normalise(new PointF(-(AB.pt2.Y - AB.pt1.Y), (AB.pt2.X - AB.pt1.X)));
-                float dp1 = DistanceToLine2D(FOV_AB, n1, AB.pt1);
-                float dp2 = DistanceToLine2D(FOV_AB, n1, AB.pt2);
-                float dp3 = DistanceToLine2D(FOV_CD, n2, AB.pt1);
-                float dp4 = DistanceToLine2D(FOV_CD, n2, AB.pt2);
 
 #if DEBUG
-                PointF a, b;
-
                 a = VectorAdd2D(n1, GetLineSegmentCenter(FOV_AB));
                 b = VectorAdd2D(VectorScale2D(n1, 5), a);
 
@@ -271,42 +307,23 @@ namespace GameTestBed
 
                 g.DrawLine(Pens.Red, a, b);
 
+                a = VectorAdd2D(n3, GetLineSegmentCenter(new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 }));
+                b = VectorAdd2D(VectorScale2D(n3, 5), a);
+
+                g.DrawLine(Pens.Blue, a, b);
+
+                a = VectorAdd2D(n4, GetLineSegmentCenter(new Line() { pt1 = FOV_AB.pt2, pt2 = FOV_CD.pt2 }));
+                b = VectorAdd2D(VectorScale2D(n4, 5), a);
+
+                g.DrawLine(Pens.Purple, a, b);
+
                 a = VectorAdd2D(nAB, GetLineSegmentCenter(AB));
                 b = VectorAdd2D(VectorScale2D(nAB, 5), a);
 
                 g.DrawLine(map[i].pen, a, b);
 #endif
-                PointF i1 = AB.pt1;
-                PointF i2 = AB.pt2;
-                if ((dp1 < 0 && dp2 < 0) || (dp3 < 0 && dp4 <0))
-                    continue;
-
-                if (lir1.resultType == LineIntersectionResultType.Intersecting)
-                {
-                    if (dp1 < 0 || dp2 < 0) // <= is probably not right?!? tollerance epsilon maybe??
-                    {
-                        i2 = lir1.intersectionPoint;
-                    }
-                    else
-                    {
-                        i1 = lir1.intersectionPoint;
-                    }
-                }
-
-                if (lir2.resultType == LineIntersectionResultType.Intersecting)
-                {
-                    if (dp3 < 0 || dp4 < 0)
-                    {
-                        i1 = lir2.intersectionPoint;
-                    }
-                    else
-                    {
-                        i2 = lir2.intersectionPoint;
-                    }
-                }
-
-                i1 = t == null ? AB.pt1 : (PointF)t;
-                i2 = t2 == null ? AB.pt1 : (PointF)t2;
+                PointF i1 = t == null ? new Point() : (PointF)t?.pt1;
+                PointF i2 = t == null ? new Point() : (PointF)t?.pt2;
 
                 // Draw Wall
                 g.DrawLine(Pens.White, vx1, vy1, vx2, vy2);
@@ -334,18 +351,17 @@ namespace GameTestBed
             Graphics g3 = Graphics.FromImage(viewport[2]);
             g3.Clear(Color.Black);
 
-            fovNearX1 = (float)(Math.Cos(FIXED_PLAYER_ANGLE - fovAngleHalved) * fovNearDistance);
-            fovNearY1 = (float)(Math.Sin(FIXED_PLAYER_ANGLE - fovAngleHalved) * fovNearDistance);
-            fovNearX2 = (float)(Math.Cos(FIXED_PLAYER_ANGLE + fovAngleHalved) * fovNearDistance);
-            fovNearY2 = (float)(Math.Sin(FIXED_PLAYER_ANGLE + fovAngleHalved) * fovNearDistance);
+            length = (float)Math.Abs(fovNearDistance / Math.Cos(fovAngleHalved));
+            fovNearX1 = (float)(Math.Cos(FIXED_PLAYER_ANGLE - fovAngleHalved) * length);
+            fovNearY1 = (float)(Math.Sin(FIXED_PLAYER_ANGLE - fovAngleHalved) * length);
+            fovNearX2 = (float)(Math.Cos(FIXED_PLAYER_ANGLE + fovAngleHalved) * length);
+            fovNearY2 = (float)(Math.Sin(FIXED_PLAYER_ANGLE + fovAngleHalved) * length);
 
-            fovFarX1 = (float)(Math.Cos(FIXED_PLAYER_ANGLE - fovAngleHalved) * fovFarDistance);
-            fovFarY1 = (float)(Math.Sin(FIXED_PLAYER_ANGLE - fovAngleHalved) * fovFarDistance);
-            fovFarX2 = (float)(Math.Cos(FIXED_PLAYER_ANGLE + fovAngleHalved) * fovFarDistance);
-            fovFarY2 = (float)(Math.Sin(FIXED_PLAYER_ANGLE + fovAngleHalved) * fovFarDistance);
-
-            float xOffset = 50;
-            float yOffset = 50;
+            length = (float)Math.Abs(fovFarDistance / Math.Cos(fovAngleHalved));
+            fovFarX1 = (float)(Math.Cos(FIXED_PLAYER_ANGLE - fovAngleHalved) * length);
+            fovFarY1 = (float)(Math.Sin(FIXED_PLAYER_ANGLE - fovAngleHalved) * length);
+            fovFarX2 = (float)(Math.Cos(FIXED_PLAYER_ANGLE + fovAngleHalved) * length);
+            fovFarY2 = (float)(Math.Sin(FIXED_PLAYER_ANGLE + fovAngleHalved) * length);
 
             FOV_AB.pt1.X = fovNearX1; FOV_AB.pt1.Y = fovNearY1;
             FOV_AB.pt2.X = fovFarX1; FOV_AB.pt2.Y = fovFarY1;
@@ -354,6 +370,8 @@ namespace GameTestBed
 
             n1 = Normalise(new PointF(-(FOV_AB.pt2.Y - FOV_AB.pt1.Y), (FOV_AB.pt2.X - FOV_AB.pt1.X)));
             n2 = Normalise(new PointF((FOV_CD.pt2.Y - FOV_CD.pt1.Y), -(FOV_CD.pt2.X - FOV_CD.pt1.X)));
+            n3 = Normalise(new PointF(-(FOV_AB.pt1.Y - FOV_CD.pt1.Y), (FOV_AB.pt1.X - FOV_CD.pt1.X)));
+            n4 = Normalise(new PointF((FOV_AB.pt2.Y - FOV_CD.pt2.Y), -(FOV_AB.pt2.X - FOV_CD.pt2.X)));
 
             for (int i = 0; i < map.Length - 1; i++)
             {
@@ -363,11 +381,10 @@ namespace GameTestBed
                 float tx2 = vx2 - px; float ty2 = vy2 - py;
 
                 // Rotate them around the player's view
-                double a = angle;
-                float tz1 = (float)(tx1 * Math.Cos(a) + ty1 * Math.Sin(a));
-                float tz2 = (float)(tx2 * Math.Cos(a) + ty2 * Math.Sin(a));
-                tx1 = (float)(tx1 * Math.Sin(a) - ty1 * Math.Cos(a));
-                tx2 = (float)(tx2 * Math.Sin(a) - ty2 * Math.Cos(a));
+                float tz1 = (float)(tx1 * Math.Cos(angle) + ty1 * Math.Sin(angle));
+                float tz2 = (float)(tx2 * Math.Cos(angle) + ty2 * Math.Sin(angle));
+                tx1 = (float)(tx1 * Math.Sin(angle) - ty1 * Math.Cos(angle));
+                tx2 = (float)(tx2 * Math.Sin(angle) - ty2 * Math.Cos(angle));
 
                 //float tz1 = ty1; float tz2 = ty2;
 
@@ -376,49 +393,33 @@ namespace GameTestBed
                 {
                     AB.pt1.X = tx1; AB.pt1.Y = tz1;
                     AB.pt2.X = tx2; AB.pt2.Y = tz2;
-                    AB.pt1.X = vx1; AB.pt1.Y = vy1; AB.pt2.X = vx2; AB.pt2.Y = vy2;
-                    PointF? t = LineIntersection2D(AB, FOV_AB, n1);
-                    lir1 = Intersect2D(FOV_AB, AB);
-                    PointF? t2 = LineIntersection2D(AB, FOV_CD, n2);
-                    lir2 = Intersect2D(FOV_CD, AB);
+
+                    Line[] hull = { FOV_AB, new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 },
+                    FOV_CD, new Line() { pt1 = FOV_AB.pt2, pt2 = FOV_CD.pt2 } };
+                    PointF[] normals = { n1, n3, n2, n4 };
+
+                    Line? t = LineIntersection2D(AB, hull, normals, 4);
 
                     PointF nAB = Normalise(new PointF(-(AB.pt2.Y - AB.pt1.Y), (AB.pt2.X - AB.pt1.X)));
-                    float dp1 = DistanceToLine2D(FOV_AB, n1, AB.pt1);
-                    float dp2 = DistanceToLine2D(FOV_AB, n1, AB.pt2);
-                    float dp3 = DistanceToLine2D(FOV_CD, n2, AB.pt1);
-                    float dp4 = DistanceToLine2D(FOV_CD, n2, AB.pt2);
 
-                    PointF i1 = AB.pt1;
-                    PointF i2 = AB.pt2;
-                    if ((dp1 < 0 && dp2 < 0) || (dp3 < 0 && dp4 < 0))
-                        continue;
+#if DEBUG
+                    a = VectorAdd2D(n1, GetLineSegmentCenter(FOV_AB));
+                    b = VectorAdd2D(VectorScale2D(n1, 5), a);
 
-                    if (lir1.resultType == LineIntersectionResultType.Intersecting)
-                    {
-                        if (dp1 < 0 || dp2 < 0) // <= is probably not right?!? tollerance epsilon maybe??
-                        {
-                            i2 = lir1.intersectionPoint;
-                        }
-                        else
-                        {
-                            i1 = lir1.intersectionPoint;
-                        }
-                    }
+                    g.DrawLine(Pens.Green, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
 
-                    if (lir2.resultType == LineIntersectionResultType.Intersecting)
-                    {
-                        if (dp3 < 0 || dp4 < 0)
-                        {
-                            i1 = lir2.intersectionPoint;
-                        }
-                        else
-                        {
-                            i2 = lir2.intersectionPoint;
-                        }
-                    }
+                    a = VectorAdd2D(n2, GetLineSegmentCenter(FOV_CD));
+                    b = VectorAdd2D(VectorScale2D(n2, 5), a);
 
-                    i1 = t == null ? AB.pt1 : (PointF)t;
-                    i2 = t2 == null ? AB.pt2 : (PointF)t2;
+                    g.DrawLine(Pens.Red, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+
+                    a = VectorAdd2D(nAB, GetLineSegmentCenter(AB));
+                    b = VectorAdd2D(VectorScale2D(nAB, 5), a);
+
+                    g.DrawLine(map[i].pen, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+#endif
+                    PointF i1 = t == null ? new Point() : (PointF)t?.pt1;
+                    PointF i2 = t == null ? new Point() : (PointF)t?.pt2;
 
                     // Draw Wall
                     g.DrawLine(Pens.White, xOffset - tx1, yOffset - tz1, xOffset - tx2, yOffset - tz2);
@@ -426,8 +427,8 @@ namespace GameTestBed
 
                     // Draw Intsection
                     //i1.X = xOffset - i1.X; i1.Y = yOffset - i1.Y; i2.X = xOffset - i2.X; i2.Y = yOffset - i2.Y;
-                    PointF sA = new PointF(xOffset - i1.X, yOffset - i1.Y);
-                    PointF sB = new PointF(xOffset - i2.X, yOffset - i2.Y);
+                    PointF sA = VectorSubtract2D(screenOffset, i1);
+                    PointF sB = VectorSubtract2D(screenOffset, i2);
                     g.DrawLine(map[i].pen, sA, sB);
                     //g.DrawLine(map[i].pen, AB.pt1, AB.pt2);
 
@@ -446,25 +447,33 @@ namespace GameTestBed
                         float ya = y1a + (x - x1) * (y2a - y1a) / (x2 - x1);
                         float yb = y1b + (x - x1) * (y2b - y1b) / (x2 - x1);
 
+                        float zDepth = (tz1 + (x - x1) * (tz2 - tz1) / (x2 - x1));
+                        Color c = Color.FromArgb(
+                            (1 - zDepth > 1) ? map[i].pen.Color.R : (int)((1 - (zDepth / 100)) * map[i].pen.Color.R),
+                            (1 - zDepth > 1) ? map[i].pen.Color.G : (int)((1 - (zDepth / 100)) * map[i].pen.Color.G),
+                            (1 - zDepth > 1) ? map[i].pen.Color.B : (int)((1 - (zDepth / 100)) * map[i].pen.Color.B));
+                        Pen p = new Pen(c);
+                        //Pen p = map[i].pen;
+
                         if (map[i].isPortal)
                         {
-                            g3.DrawLine(Pens.DarkGray, 50 + x, 0, 50 + x, 50 + -ya);     // Ceiling
-                            g3.DrawLine(Pens.Blue, 50 + x, 50 + yb, 50 + x, 140);        // Floor
-                            g3.DrawLine(Pens.Red, 50 + x, 50 + ya, 50 + x, 50 + yb);     // Portal
+                            g3.DrawLine(Pens.DarkGray, 50 - x, 0, 50 - x, 50 + -ya);     // Ceiling
+                            g3.DrawLine(Pens.Blue, 50 - x, 50 + yb, 50 - x, 140);        // Floor
+                            g3.DrawLine(Pens.Red, 50 - x, 50 + ya, 50 - x, 50 + yb);     // Portal
                         }
                         else
                         {
-                            g3.DrawLine(Pens.DarkGray, 50 + x, 0, 50 + x, 50 + -ya);     // Ceiling
-                            g3.DrawLine(Pens.Blue, 50 + x, 50 + yb, 50 + x, 140);        // Floor
+                            //g3.DrawLine(Pens.DarkGray, 50 - x, 0, 50 - x, 50 + -ya);     // Ceiling
+                            //g3.DrawLine(Pens.Blue, 50 - x, 50 + yb, 50 - x, 140);        // Floor
 
-                            g3.DrawLine(map[i].pen, 50 + x, 50 + ya, 50 + x, 50 + yb);   // Wall
+                            g3.DrawLine(p, 50 - x, 50 + ya, 50 - x, 50 + yb);   // Wall
                         }
                     }
 
-                    g3.DrawLine(map[i].pen, 50 + x1, 50 + y1a, 50 + x2, 50 + y2a);   // top (1-2 b)
-                    g3.DrawLine(map[i].pen, 50 + x1, 50 + y1b, 50 + x2, 50 + y2b);   // bottom (1-2 b)
-                    g3.DrawLine(Pens.Red, 50 + x1, 50 + y1a, 50 + x1, 50 + y1b);     // left (1)
-                    g3.DrawLine(Pens.Red, 50 + x2, 50 + y2a, 50 + x2, 50 + y2b);     // right (2)
+                    g3.DrawLine(map[i].pen, xOffset - x1, yOffset + y1a, xOffset - x2, yOffset + y2a);   // top (1-2 b)
+                    g3.DrawLine(map[i].pen, xOffset - x1, yOffset + y1b, xOffset - x2, yOffset + y2b);   // bottom (1-2 b)
+                    g3.DrawLine(Pens.Red, xOffset - x1, yOffset + y1a, xOffset - x1, yOffset + y1b);     // left (1)
+                    g3.DrawLine(Pens.Red, xOffset - x2, yOffset + y2a, xOffset - x2, yOffset + y2b);     // right (2)
                 }
             }
 
@@ -480,109 +489,6 @@ namespace GameTestBed
             g.DrawLine(Pens.Ivory, ptC, ptD);
             g.DrawLine(Pens.Ivory, ptA, ptC);
             g.DrawLine(Pens.Ivory, ptB, ptD);
-
-            //g.DrawLine(Pens.Ivory, fovNearX1 + 50, fovNearY1 + 50, fovFarX1 + 50, fovFarY1 + 50);
-            //g.DrawLine(Pens.Ivory, fovNearX2 + 50, fovNearY2 + 50, fovFarX2 + 50, fovFarY2 + 50);
-            //g.DrawLine(Pens.Ivory, fovNearX1 + 50, fovNearY1 + 50, fovNearX2 + 50, fovNearY2 + 50);
-            //g.DrawLine(Pens.Ivory, fovFarX1 + 50, fovFarY1 + 50, fovFarX2 + 50, fovFarY2 + 50);
-
-            //
-            // Draw the perspective-transformed map
-            //                
-
-            //g = Graphics.FromImage(viewport[2]);
-            //g.Clear(Color.Black);
-
-            //for (int i = 0; i < map.Length - 1; i++)
-            //{
-            //    vx1 = map[i + 1].pt.X; vy1 = map[i + 1].pt.Y; vx2 = map[i].pt.X; vy2 = map[i].pt.Y;
-
-            //    float tx1 = vx1 - px; float ty1 = vy1 - py;
-            //    float tx2 = vx2 - px; float ty2 = vy2 - py;
-
-            //    // Rotate them around the player's view
-            //    float tz1 = (float)(tx1 * Math.Cos(angle) + ty1 * Math.Sin(angle));
-            //    float tz2 = (float)(tx2 * Math.Cos(angle) + ty2 * Math.Sin(angle));
-            //    tx1 = (float)(tx1 * Math.Sin(angle) - ty1 * Math.Cos(angle));
-            //    tx2 = (float)(tx2 * Math.Sin(angle) - ty2 * Math.Cos(angle));
-
-            //    // Clip to the view frustum
-            //    //if (tz1 > 0 || tz2 > 0)
-            //    {
-            //        AB.pt1.X = tx1; AB.pt1.Y = tz1;
-            //        AB.pt2.X = tx2; AB.pt2.Y = tz2;
-            //        lir1 = Intersect2D(AB, FOV_AB);
-            //        lir2 = Intersect2D(AB, FOV_CD);
-
-            //        PointF nAB = Normalise(new PointF(-(AB.pt2.Y - AB.pt1.Y), (AB.pt2.X - AB.pt1.X)));
-            //        float dp1 = DistanceToLine2D(FOV_AB, n1, AB.pt1);
-            //        float dp2 = DistanceToLine2D(FOV_AB, n1, AB.pt2);
-            //        float dp3 = DistanceToLine2D(FOV_CD, n2, AB.pt1);
-            //        float dp4 = DistanceToLine2D(FOV_CD, n2, AB.pt2);
-
-            //        PointF i1 = AB.pt1;
-            //        PointF i2 = AB.pt2;
-            //        if ((dp1 < 0 && dp2 < 0) || (dp3 < 0 && dp4 < 0))
-            //            continue;
-
-            //        if (lir1.resultType == LineIntersectionResultType.Intersecting)
-            //        {
-            //            if (dp1 < 0)
-            //            {
-            //                i2 = lir1.intersectionPoint;
-            //            }
-            //            else
-            //            {
-            //                i1 = lir1.intersectionPoint;
-            //            }
-            //        }
-
-            //        if (lir2.resultType == LineIntersectionResultType.Intersecting)
-            //        {
-            //            if (dp1 < 0)
-            //            {
-            //                i1 = lir2.intersectionPoint;
-            //            }
-            //            else
-            //            {
-            //                i2 = lir2.intersectionPoint;
-            //            }
-            //        }
-
-            //        tx1 = i1.X; tz1 = i1.Y; tx2 = i2.X; tz2 = i2.Y;
-
-            //        //float focalLength = Math.Abs(fovNearY2);// + Math.Abs(fovNearY2);
-            //        float x1 = tx1 * focalLength / tz1;
-            //        float y1a = -map[i].height * focalLength / tz1; float y1b = map[i].height * focalLength / tz1;
-            //        float x2 = tx2 * focalLength / tz2;
-            //        float y2a = -map[i].height * focalLength / tz2; float y2b = map[i].height * focalLength / tz2;
-
-            //        for (float x = x1; x <= x2; x++)
-            //        {
-            //            float ya = y1a + (x - x1) * (y2a - y1a) / (x2 - x1);
-            //            float yb = y1b + (x - x1) * (y2b - y1b) / (x2 - x1);
-
-            //            if (map[i].isPortal)
-            //            {
-            //                g.DrawLine(Pens.DarkGray, 50 + x, 0, 50 + x, 50 + -ya);     // Ceiling
-            //                g.DrawLine(Pens.Blue, 50 + x, 50 + yb, 50 + x, 140);        // Floor
-            //                g.DrawLine(Pens.Red, 50 + x, 50 + ya, 50 + x, 50 + yb);     // Portal
-            //            }
-            //            else
-            //            {
-            //                g.DrawLine(Pens.DarkGray, 50 + x, 0, 50 + x, 50 + -ya);     // Ceiling
-            //                g.DrawLine(Pens.Blue, 50 + x, 50 + yb, 50 + x, 140);        // Floor
-
-            //                g.DrawLine(map[i].pen, 50 + x, 50 + ya, 50 + x, 50 + yb);   // Wall
-            //            }
-            //        }
-
-            //        g.DrawLine(map[i].pen, 50 + x1, 50 + y1a, 50 + x2, 50 + y2a);   // top (1-2 b)
-            //        g.DrawLine(map[i].pen, 50 + x1, 50 + y1b, 50 + x2, 50 + y2b);   // bottom (1-2 b)
-            //        g.DrawLine(Pens.Red, 50 + x1, 50 + y1a, 50 + x1, 50 + y1b);     // left (1)
-            //        g.DrawLine(Pens.Red, 50 + x2, 50 + y2a, 50 + x2, 50 + y2b);     // right (2)
-            //    }
-            //}
 
             g = Graphics.FromImage(ScreenBuffer);
             g.DrawImage(viewport[0], 5, 5);
@@ -622,6 +528,11 @@ namespace GameTestBed
             return new PointF(v.X + w.X, v.Y + w.Y);
         }
 
+        private PointF VectorSubtract2D(PointF v, PointF w)
+        {
+            return new PointF(v.X - w.X, v.Y - w.Y);
+        }
+
         private PointF VectorScale2D(PointF v, float scale)
         {
             return new PointF(v.X * scale, v.Y * scale);
@@ -643,20 +554,80 @@ namespace GameTestBed
             return (v.X * w.Y - v.Y * w.X);
         }
 
-        private PointF? LineIntersection2D(Line ab, Line cd, PointF n)
+        private Line LineIntersection2D(Line ab, Line cd, PointF n)
         {
             PointF p0 = ab.pt1;
             PointF p1 = ab.pt2;
-            PointF d = cd.pt2;
+            PointF p = cd.pt2;
 
-            PointF p0_minus_d = new PointF(p0.X - d.X, p0.Y - d.Y);
+            PointF p0_minus_p = new PointF(p0.X - p.X, p0.Y - p.Y);
             PointF p1_minus_p0 = new PointF(p1.X - p0.X, p1.Y - p0.Y);
-            float t = (DotProduct2D(n, p0_minus_d) / DotProduct2D(VectorScale2D(n, -1), p1_minus_p0));
+            float t = (DotProduct2D(n, p0_minus_p) / DotProduct2D(VectorScale2D(n, -1), p1_minus_p0));
 
             if (t > 0 && t < 1)
-                return new PointF(p0.X + (p1_minus_p0.X * t), p0.Y + (p1_minus_p0.Y * t));
+            {
+
+                if (DotProduct2D(n, p0_minus_p) < 0)
+                    return new Line() { pt1 = new PointF(p0.X + (p1_minus_p0.X * t), p0.Y + (p1_minus_p0.Y * t)), pt2 = ab.pt2 };
+                else
+                    return new Line() { pt1 = ab.pt1, pt2 = new PointF(p0.X + (p1_minus_p0.X * t), p0.Y + (p1_minus_p0.Y * t)) };
+            }
             else
-                return null;
+            {
+                return ab;
+            }
+        }
+
+        private Line? LineIntersection2D(Line ab, Line[] hull, PointF[] n, int hullSize)
+        {
+            float[] d = new float[hullSize];
+            float[] t = new float[hullSize];
+            float[] a_minus_p_dot_n = new float[hullSize];
+            float[] b_minus_p_dot_n = new float[hullSize];
+
+            float tE = 0; float tL = 1;
+
+            PointF p1_minus_p0;
+
+            // Do trivial reject and precalc dots ...
+            for (int i = 0; i < hullSize; i ++)
+            {
+                a_minus_p_dot_n[i] = DotProduct2D(VectorSubtract2D(ab.pt1, hull[i].pt2), n[i]);
+                b_minus_p_dot_n[i] = DotProduct2D(VectorSubtract2D(ab.pt2, hull[i].pt2), n[i]);
+
+                if (a_minus_p_dot_n[i] < 0 && b_minus_p_dot_n[i] < 0)
+                {
+                    return null;
+                }
+            }
+
+            for (int i = 0; i < hullSize; i ++)
+            {
+                PointF p0 = ab.pt1;
+                PointF p1 = ab.pt2;
+                PointF p = hull[i].pt2;
+
+                PointF p0_minus_p = new PointF(p0.X - p.X, p0.Y - p.Y);
+                p1_minus_p0 = new PointF(p1.X - p0.X, p1.Y - p0.Y);
+                t[i] = (DotProduct2D(n[i], p0_minus_p) / DotProduct2D(VectorScale2D(n[i], -1), p1_minus_p0));
+
+                d[i] = DotProduct2D(n[i], new PointF(p1.X - p0.X, p1.Y - p0.Y));
+
+                if (t[i] > 0 && t[i] < 1)
+                {
+                    if (d[i] < 0)
+                        tL = Math.Min(tL, t[i]);
+                    else
+                        tE = Math.Max(tE, t[i]);
+                }
+            }
+
+            p1_minus_p0 = new PointF(ab.pt2.X - ab.pt1.X, ab.pt2.Y - ab.pt1.Y);
+            return new Line()
+            {
+                pt1 = new PointF(ab.pt1.X + (p1_minus_p0.X * tE), ab.pt1.Y + (p1_minus_p0.Y * tE)),
+                pt2 = new PointF(ab.pt1.X + (p1_minus_p0.X * tL), ab.pt1.Y + (p1_minus_p0.Y * tL))
+            };
         }
 
         private LineIntersectionResult2D Intersect2D(Line ab, Line cd)

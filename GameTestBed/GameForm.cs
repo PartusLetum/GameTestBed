@@ -2,6 +2,8 @@
 using System.Drawing;
 using System;
 using System.Text;
+using System.Drawing.Drawing2D;
+using System.Collections.Generic;
 
 namespace GameTestBed
 {
@@ -58,6 +60,8 @@ namespace GameTestBed
 
         private struct mapvector { public PointF pt; public Pen pen; public float height; public bool isPortal; };
         private mapvector[] map;
+
+        private PortalMap portalMap;
 
         //
         // Screen Support Objects
@@ -157,6 +161,34 @@ namespace GameTestBed
             };
 
             map = map1;
+
+            portalMap = new PortalMap()
+            {
+                PlayerStartLocation = new PointF(0, 0),
+                Sectors = new List<PortalMapSector>()
+                {
+                    new PortalMapSector()
+                    {
+                        LineSegments = new List<PortalMapLineSegment>()
+                        {
+                            new PortalMapLineSegment(new PointF(30, -30), new PointF(-30, -30)) { IsPortal = true },
+                            new PortalMapLineSegment(new PointF(-30, -30), new PointF(-30, 30)),
+                            new PortalMapLineSegment(new PointF(-30, 30), new PointF(30, 30)),
+                            new PortalMapLineSegment(new PointF(30, 30), new PointF(30, -30))
+                        }
+                    },
+                    new PortalMapSector()
+                    {
+                        LineSegments = new List<PortalMapLineSegment>()
+                        {
+                            new PortalMapLineSegment(new PointF(-30, -30), new PointF(30, -30)) { IsPortal = true },
+                            new PortalMapLineSegment(new PointF(30, -30), new PointF(30, -60)),
+                            new PortalMapLineSegment(new PointF(30, -60), new PointF(-30, -60)),
+                            new PortalMapLineSegment(new PointF(-30, -60), new PointF(-30, -30))
+                        }
+                    }
+                }
+            };
 
             Size = new Size(640, 400);
         }
@@ -373,107 +405,127 @@ namespace GameTestBed
             n3 = Normalise(new PointF(-(FOV_AB.pt1.Y - FOV_CD.pt1.Y), (FOV_AB.pt1.X - FOV_CD.pt1.X)));
             n4 = Normalise(new PointF((FOV_AB.pt2.Y - FOV_CD.pt2.Y), -(FOV_AB.pt2.X - FOV_CD.pt2.X)));
 
-            for (int i = 0; i < map.Length - 1; i++)
+            foreach (PortalMapSector sector in portalMap.Sectors)
             {
-                vx1 = map[i].pt.X; vy1 = map[i].pt.Y; vx2 = map[i + 1].pt.X; vy2 = map[i + 1].pt.Y;
-
-                float tx1 = vx1 - px; float ty1 = vy1 - py;
-                float tx2 = vx2 - px; float ty2 = vy2 - py;
-
-                // Rotate them around the player's view
-                float tz1 = (float)(tx1 * Math.Cos(angle) + ty1 * Math.Sin(angle));
-                float tz2 = (float)(tx2 * Math.Cos(angle) + ty2 * Math.Sin(angle));
-                tx1 = (float)(tx1 * Math.Sin(angle) - ty1 * Math.Cos(angle));
-                tx2 = (float)(tx2 * Math.Sin(angle) - ty2 * Math.Cos(angle));
-
-                //float tz1 = ty1; float tz2 = ty2;
-
-                // Clip to the view frustum
-                //if (tz1 > 0 || tz2 > 0)
+                foreach (PortalMapLineSegment lineSegment in sector.LineSegments)
                 {
-                    AB.pt1.X = tx1; AB.pt1.Y = tz1;
-                    AB.pt2.X = tx2; AB.pt2.Y = tz2;
+                    //vx1 = map[i].pt.X; vy1 = map[i].pt.Y; vx2 = map[i + 1].pt.X; vy2 = map[i + 1].pt.Y;
+                    vx1 = lineSegment.LineSegment.pt1.X;
+                    vy1 = lineSegment.LineSegment.pt1.Y;
+                    vx2 = lineSegment.LineSegment.pt2.X;
+                    vy2 = lineSegment.LineSegment.pt2.Y;
 
-                    Line[] hull = { FOV_AB, new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 },
+                    float tx1 = vx1 - px; float ty1 = vy1 - py;
+                    float tx2 = vx2 - px; float ty2 = vy2 - py;
+
+                    // Rotate them around the player's view
+                    float tz1 = (float)(tx1 * Math.Cos(angle) + ty1 * Math.Sin(angle));
+                    float tz2 = (float)(tx2 * Math.Cos(angle) + ty2 * Math.Sin(angle));
+                    tx1 = (float)(tx1 * Math.Sin(angle) - ty1 * Math.Cos(angle));
+                    tx2 = (float)(tx2 * Math.Sin(angle) - ty2 * Math.Cos(angle));
+
+                    //float tz1 = ty1; float tz2 = ty2;
+
+                    // Clip to the view frustum
+                    //if (tz1 > 0 || tz2 > 0)
+                    {
+                        AB.pt1.X = tx1; AB.pt1.Y = tz1;
+                        AB.pt2.X = tx2; AB.pt2.Y = tz2;
+
+                        Line[] hull = { FOV_AB, new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 },
                     FOV_CD, new Line() { pt1 = FOV_AB.pt2, pt2 = FOV_CD.pt2 } };
-                    PointF[] normals = { n1, n3, n2, n4 };
+                        PointF[] normals = { n1, n3, n2, n4 };
 
-                    Line? t = LineIntersection2D(AB, hull, normals, 4);
+                        Line? t = LineIntersection2D(AB, hull, normals, 4);
 
-                    PointF nAB = Normalise(new PointF(-(AB.pt2.Y - AB.pt1.Y), (AB.pt2.X - AB.pt1.X)));
+                        PointF nAB = Normalise(new PointF((AB.pt2.Y - AB.pt1.Y), -(AB.pt2.X - AB.pt1.X)));
 
 #if DEBUG
-                    a = VectorAdd2D(n1, GetLineSegmentCenter(FOV_AB));
-                    b = VectorAdd2D(VectorScale2D(n1, 5), a);
+                        a = VectorAdd2D(n1, GetLineSegmentCenter(FOV_AB));
+                        b = VectorAdd2D(VectorScale2D(n1, 5), a);
 
-                    g.DrawLine(Pens.Green, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+                        g.DrawLine(Pens.Green, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
 
-                    a = VectorAdd2D(n2, GetLineSegmentCenter(FOV_CD));
-                    b = VectorAdd2D(VectorScale2D(n2, 5), a);
+                        a = VectorAdd2D(n2, GetLineSegmentCenter(FOV_CD));
+                        b = VectorAdd2D(VectorScale2D(n2, 5), a);
 
-                    g.DrawLine(Pens.Red, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+                        g.DrawLine(Pens.Red, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
 
-                    a = VectorAdd2D(nAB, GetLineSegmentCenter(AB));
-                    b = VectorAdd2D(VectorScale2D(nAB, 5), a);
+                        a = VectorAdd2D(nAB, GetLineSegmentCenter(AB));
+                        b = VectorAdd2D(VectorScale2D(nAB, 5), a);
 
-                    g.DrawLine(map[i].pen, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+                        g.DrawLine(new Pen(lineSegment.LineColor), VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
 #endif
-                    PointF i1 = t == null ? new Point() : (PointF)t?.pt1;
-                    PointF i2 = t == null ? new Point() : (PointF)t?.pt2;
+                        PointF i1 = t == null ? new Point() : (PointF)t?.pt1;
+                        PointF i2 = t == null ? new Point() : (PointF)t?.pt2;
 
-                    // Draw Wall
-                    g.DrawLine(Pens.White, xOffset - tx1, yOffset - tz1, xOffset - tx2, yOffset - tz2);
-                    //g.DrawLine(Pens.White, tx1, tz1, tx2, tz2);
+                        // Draw Wall
+                        g.DrawLine(Pens.White, xOffset - tx1, yOffset - tz1, xOffset - tx2, yOffset - tz2);
+                        //g.DrawLine(Pens.White, tx1, tz1, tx2, tz2);
 
-                    // Draw Intsection
-                    //i1.X = xOffset - i1.X; i1.Y = yOffset - i1.Y; i2.X = xOffset - i2.X; i2.Y = yOffset - i2.Y;
-                    PointF sA = VectorSubtract2D(screenOffset, i1);
-                    PointF sB = VectorSubtract2D(screenOffset, i2);
-                    g.DrawLine(map[i].pen, sA, sB);
-                    //g.DrawLine(map[i].pen, AB.pt1, AB.pt2);
+                        // Draw Intsection
+                        //i1.X = xOffset - i1.X; i1.Y = yOffset - i1.Y; i2.X = xOffset - i2.X; i2.Y = yOffset - i2.Y;
+                        PointF sA = VectorSubtract2D(screenOffset, i1);
+                        PointF sB = VectorSubtract2D(screenOffset, i2);
+                        g.DrawLine(new Pen(lineSegment.LineColor), sA, sB);
+                        //g.DrawLine(map[i].pen, AB.pt1, AB.pt2);
 
-                    // Do 3D (2.5D) render now ...
+                        // Do 3D (2.5D) render now ...
 
-                    tx1 = i1.X; tz1 = i1.Y; tx2 = i2.X; tz2 = i2.Y;
+                        tx1 = i1.X; tz1 = i1.Y; tx2 = i2.X; tz2 = i2.Y;
 
-                    //float focalLength = Math.Abs(fovNearY2);// + Math.Abs(fovNearY2);
-                    float x1 = tx1 * focalLength / tz1;
-                    float y1a = -map[i].height * focalLength / tz1; float y1b = map[i].height * focalLength / tz1;
-                    float x2 = tx2 * focalLength / tz2;
-                    float y2a = -map[i].height * focalLength / tz2; float y2b = map[i].height * focalLength / tz2;
+                        //float focalLength = Math.Abs(fovNearY2);// + Math.Abs(fovNearY2);
+                        float x1 = tx1 * focalLength / tz1;
+                        float y1a = -sector.Height * focalLength / tz1; float y1b = sector.Height * focalLength / tz1;
+                        float x2 = tx2 * focalLength / tz2;
+                        float y2a = -sector.Height * focalLength / tz2; float y2b = sector.Height * focalLength / tz2;
 
-                    for (float x = x1; x <= x2; x++)
-                    {
-                        float ya = y1a + (x - x1) * (y2a - y1a) / (x2 - x1);
-                        float yb = y1b + (x - x1) * (y2b - y1b) / (x2 - x1);
-
-                        float zDepth = (tz1 + (x - x1) * (tz2 - tz1) / (x2 - x1));
-                        Color c = Color.FromArgb(
-                            (1 - zDepth > 1) ? map[i].pen.Color.R : (int)((1 - (zDepth / 100)) * map[i].pen.Color.R),
-                            (1 - zDepth > 1) ? map[i].pen.Color.G : (int)((1 - (zDepth / 100)) * map[i].pen.Color.G),
-                            (1 - zDepth > 1) ? map[i].pen.Color.B : (int)((1 - (zDepth / 100)) * map[i].pen.Color.B));
-                        Pen p = new Pen(c);
-                        //Pen p = map[i].pen;
-
-                        if (map[i].isPortal)
+                        for (float x = x1; x <= x2; x++)
                         {
-                            g3.DrawLine(Pens.DarkGray, 50 - x, 0, 50 - x, 50 + -ya);     // Ceiling
-                            g3.DrawLine(Pens.Blue, 50 - x, 50 + yb, 50 - x, 140);        // Floor
-                            g3.DrawLine(Pens.Red, 50 - x, 50 + ya, 50 - x, 50 + yb);     // Portal
-                        }
-                        else
-                        {
-                            //g3.DrawLine(Pens.DarkGray, 50 - x, 0, 50 - x, 50 + -ya);     // Ceiling
-                            //g3.DrawLine(Pens.Blue, 50 - x, 50 + yb, 50 - x, 140);        // Floor
+                            float ya = y1a + (x - x1) * (y2a - y1a) / (x2 - x1);
+                            float yb = y1b + (x - x1) * (y2b - y1b) / (x2 - x1);
 
-                            g3.DrawLine(p, 50 - x, 50 + ya, 50 - x, 50 + yb);   // Wall
+                            float zDepth = (tz1 + (x - x1) * (tz2 - tz1) / (x2 - x1));
+                            Color c = Color.FromArgb(
+                                (1 - zDepth > 1) ? lineSegment.LineColor.R : (int)((1 - (zDepth / 100)) * lineSegment.LineColor.R),
+                                (1 - zDepth > 1) ? lineSegment.LineColor.G : (int)((1 - (zDepth / 100)) * lineSegment.LineColor.G),
+                                (1 - zDepth > 1) ? lineSegment.LineColor.B : (int)((1 - (zDepth / 100)) * lineSegment.LineColor.B));
+                            //Color c = Color.LightGray;
+                            Pen p = new Pen(c);
+                            //Pen p = map[i].pen;
+
+                            if (lineSegment.IsPortal)
+                            {
+                                Pen gp1 = new Pen(new LinearGradientBrush(new Point(0, 50), new Point(0, 0),
+                                    Color.Black, Color.DarkGray));
+                                Pen gp2 = new Pen(new LinearGradientBrush(new Point(0, 0), new Point(0, 50),
+                                    Color.Black, Color.Blue));
+                                //g3.DrawLine(gp1, 50 - x, 0, 50 - x, 50 + -ya);              // Ceiling
+                                //g3.DrawLine(gp2, 50 - x, 50 + yb, 50 - x, 140);             // Floor
+
+                                g3.DrawLine(Pens.Red, 50 - x, 50 + ya, 50 - x, 50 + yb);   // Wall
+                            }
+                            else
+                            {
+                                Pen gp1 = new Pen(new LinearGradientBrush(new Point(0, 50), new Point(0, 0),
+                                    Color.Black, Color.DarkGray));
+                                Pen gp2 = new Pen(new LinearGradientBrush(new Point(0, 0), new Point(0, 50),
+                                    Color.Black, Color.Blue));
+                                //g3.DrawLine(gp1, 50 - x, 0, 50 - x, 50 + -ya);              // Ceiling
+                                //g3.DrawLine(gp2, 50 - x, 50 + yb, 50 - x, 140);             // Floor
+
+                                g3.DrawLine(p, 50 - x, 50 + ya, 50 - x, 50 + yb);   // Wall
+
+                                //Graphics.FromImage(ScreenBuffer).DrawImage(viewport[2], 215, 5);
+                                //this.CreateGraphics().DrawImage(ScreenBuffer, 0, 0, ClientSize.Width, ClientSize.Height);
+                            }
                         }
+
+                        g3.DrawLine(new Pen(lineSegment.LineColor), xOffset - x1, yOffset + y1a, xOffset - x2, yOffset + y2a);   // top (1-2 b)
+                        g3.DrawLine(new Pen(lineSegment.LineColor), xOffset - x1, yOffset + y1b, xOffset - x2, yOffset + y2b);   // bottom (1-2 b)
+                        g3.DrawLine(Pens.Red, xOffset - x1, yOffset + y1a, xOffset - x1, yOffset + y1b);     // left (1)
+                        g3.DrawLine(Pens.Red, xOffset - x2, yOffset + y2a, xOffset - x2, yOffset + y2b);     // right (2)
                     }
-
-                    g3.DrawLine(map[i].pen, xOffset - x1, yOffset + y1a, xOffset - x2, yOffset + y2a);   // top (1-2 b)
-                    g3.DrawLine(map[i].pen, xOffset - x1, yOffset + y1b, xOffset - x2, yOffset + y2b);   // bottom (1-2 b)
-                    g3.DrawLine(Pens.Red, xOffset - x1, yOffset + y1a, xOffset - x1, yOffset + y1b);     // left (1)
-                    g3.DrawLine(Pens.Red, xOffset - x2, yOffset + y2a, xOffset - x2, yOffset + y2b);     // right (2)
                 }
             }
 
@@ -500,7 +552,9 @@ namespace GameTestBed
 
             Text = "FOV Distance: " + Math.Abs(focalLength).ToString("0.00");
 
-            Invalidate();
+            //Invalidate();
+            this.CreateGraphics().DrawImage(ScreenBuffer, 0, 0, ClientSize.Width, ClientSize.Height);
+            //Refresh();
         }
 
         //
@@ -741,6 +795,45 @@ namespace GameTestBed
                 FOVDown = status;
             if (e.KeyCode == Keys.M)
                 FOVUp = status;
+        }
+    }
+
+    //
+    // Portal Map Support
+    //
+
+    public class PortalMap
+    {
+        public List<PortalMapSector> Sectors { get; set; }
+        public PointF PlayerStartLocation { get; set; }
+    }
+
+    public class PortalMapSector
+    {
+        public List<PortalMapLineSegment> LineSegments { get; set; }
+        public float Height { get; set; } = 5.0f;
+    }
+
+    public class PortalMapLineSegment
+    {
+        public Line LineSegment { get; set; }
+        public Color LineColor { get; set; } = Color.LightGray;
+        public bool IsPortal { get { return isPortal; } set { isPortal = value;  LineColor = Color.DarkRed; } }
+        public PointF Normal { get; private set; }
+
+        private bool isPortal = false;
+
+        public PortalMapLineSegment(PointF a, PointF b)
+        {
+            LineSegment = new Line() { pt1 = a, pt2 = b };
+            Normal = new PointF();
+        }
+
+        public PortalMapLineSegment(PointF a, PointF b, Color c, bool isPortal = false)
+        {
+            LineSegment = new Line() { pt1 = a, pt2 = b };
+            LineColor = c;
+            IsPortal = isPortal;
         }
     }
 }

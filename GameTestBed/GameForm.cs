@@ -246,6 +246,7 @@ namespace GameTestBed
 
             // Canvas Size = tan(theta / 2) * Distance to Canvas
             focalLength = (50.0f) / (float)Math.Tan(fovAngleHalved);
+            focalLength = fovFarDistance / (float)Math.Tan(fovAngleHalved);
             //fovFarDistance = focalLength;
             //fovFarDistance = 80.0f;
 
@@ -265,7 +266,7 @@ namespace GameTestBed
                 inSector = true;
                 foreach(PortalMapLineSegment edge in sector.LineSegments)
                 {
-                    if (DistanceToLine2D(edge.LineSegment, edge.Normal, playerWorldLocation) > 0) // !!! The normal is facing the wrong way !!!
+                    if (DistanceToLine2D(edge.LineSegment, edge.Normal, playerWorldLocation) < 0)
                     {
                         inSector = false;
                         break;
@@ -448,6 +449,8 @@ namespace GameTestBed
             RenderPortalSector(Graphics.FromImage(viewport[2]), playerWorldLocation, (float)playerWorldOrientation, FOV_AB, FOV_CD, n1, n2, n3, n4, screenOffset, portalMap.PlayerSector);
 
             // Draw the Portal Map in top down 2D ...
+            RenderTopDownMap(Graphics.FromImage(viewport[1]), playerWorldLocation, (float)playerWorldOrientation, FOV_AB, FOV_CD, n1, n2, n3, n4, screenOffset);
+            // Also draw the results of the portal culling onto the map ...
             RenderPortalSector(Graphics.FromImage(viewport[1]), playerWorldLocation, (float)playerWorldOrientation, FOV_AB, FOV_CD, n1, n2, n3, n4, screenOffset, portalMap.PlayerSector, null, true);
 
             // Render player and frustum ...
@@ -480,6 +483,70 @@ namespace GameTestBed
             //Invalidate();
             this.CreateGraphics().DrawImage(ScreenBuffer, 0, 0, ClientSize.Width, ClientSize.Height);
             //Refresh();
+        }
+
+        //
+        // Render top down map
+        //
+        public void RenderTopDownMap(Graphics g, PointF viewLocation, float viewAngle, Line FOV_AB, Line FOV_CD, PointF n1, PointF n2, PointF n3, PointF n4, PointF screenOffset)
+        {
+            float px = viewLocation.X;
+            float py = viewLocation.Y;
+
+            foreach(PortalMapSector sector in portalMap.Sectors)
+            {
+                foreach (PortalMapLineSegment edge in sector.LineSegments)
+                {
+                    float vx1 = edge.LineSegment.pt1.X;
+                    float vy1 = edge.LineSegment.pt1.Y;
+                    float vx2 = edge.LineSegment.pt2.X;
+                    float vy2 = edge.LineSegment.pt2.Y;
+
+                    float tx1 = vx1 - px; float ty1 = vy1 - py;
+                    float tx2 = vx2 - px; float ty2 = vy2 - py;
+                    float angle = viewAngle;
+
+                    // Rotate them around the player's view
+                    float tz1 = (float)(tx1 * Math.Cos(angle) + ty1 * Math.Sin(angle));
+                    float tz2 = (float)(tx2 * Math.Cos(angle) + ty2 * Math.Sin(angle));
+                    tx1 = (float)(tx1 * Math.Sin(angle) - ty1 * Math.Cos(angle));
+                    tx2 = (float)(tx2 * Math.Sin(angle) - ty2 * Math.Cos(angle));
+
+                    Line AB = new Line();
+                    AB.pt1.X = tx1; AB.pt1.Y = tz1;
+                    AB.pt2.X = tx2; AB.pt2.Y = tz2;
+
+                    Line[] hull = { FOV_AB, new Line() { pt1 = FOV_AB.pt1, pt2 = FOV_CD.pt1 },
+                                        FOV_CD, new Line() { pt1 = FOV_AB.pt2, pt2 = FOV_CD.pt2 } };
+                    PointF[] normals = { n1, n3, n2, n4 };
+
+                    Line? t = LineIntersection2D(AB, hull, normals, 4);
+#if DEBUG
+                    PointF a, b = new PointF();
+                    a = VectorAdd2D(n1, GetLineSegmentCenter(FOV_AB));
+                    b = VectorAdd2D(VectorScale2D(n1, 5), a);
+
+                    g.DrawLine(Pens.Green, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+
+                    a = VectorAdd2D(n2, GetLineSegmentCenter(FOV_CD));
+                    b = VectorAdd2D(VectorScale2D(n2, 5), a);
+
+                    g.DrawLine(Pens.Red, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+
+                    PointF nAB = Normal(AB); 
+                    a = VectorAdd2D(nAB, GetLineSegmentCenter(AB));
+                    b = VectorAdd2D(VectorScale2D(nAB, 5), a);
+
+                    g.DrawLine(new Pen(edge.LineColor), VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
+#endif
+                    // Draw unclipped ...
+                    g.DrawLine(Pens.Red, screenOffset.X - tx1, screenOffset.Y - tz1, screenOffset.X - tx2, screenOffset.Y - tz2);
+                    // Draw clipped ...
+                    //PointF sA = VectorSubtract2D(screenOffset, i1);
+                    //PointF sB = VectorSubtract2D(screenOffset, i2);
+                    //g.DrawLine(new Pen(edge.LineColor), sA, sB);
+                }
+            }
         }
 
         //
@@ -517,25 +584,6 @@ namespace GameTestBed
 
                 Line? t = LineIntersection2D(AB, hull, normals, 4);
 
-                PointF nAB = Normalise(new PointF((AB.pt2.Y - AB.pt1.Y), -(AB.pt2.X - AB.pt1.X)));
-
-#if DEBUG
-                PointF a, b = new PointF();
-                a = VectorAdd2D(n1, GetLineSegmentCenter(FOV_AB));
-                b = VectorAdd2D(VectorScale2D(n1, 5), a);
-
-                g.DrawLine(Pens.Green, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
-
-                a = VectorAdd2D(n2, GetLineSegmentCenter(FOV_CD));
-                b = VectorAdd2D(VectorScale2D(n2, 5), a);
-
-                g.DrawLine(Pens.Red, VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
-
-                a = VectorAdd2D(nAB, GetLineSegmentCenter(AB));
-                b = VectorAdd2D(VectorScale2D(nAB, 5), a);
-
-                g.DrawLine(new Pen(edge.LineColor), VectorSubtract2D(screenOffset, a), VectorSubtract2D(screenOffset, b));
-#endif
                 if (t != null)
                 {
                     if (edge.IsPortal && edge.LinkedSector != lastSector) // Need to do view frustm culling first ....
@@ -546,14 +594,6 @@ namespace GameTestBed
 
                     PointF i1 = t == null ? new Point() : (PointF)t?.pt1;
                     PointF i2 = t == null ? new Point() : (PointF)t?.pt2;
-
-                    // Draw Wall
-                    g.DrawLine(Pens.White, screenOffset.X - tx1, screenOffset.Y - tz1, screenOffset.X - tx2, screenOffset.Y - tz2);
-                    //g.DrawLine(Pens.White, tx1, tz1, tx2, tz2);
-
-                    // Draw Intsection
-                    //i1.X = xOffset - i1.X; i1.Y = yOffset - i1.Y; i2.X = xOffset - i2.X; i2.Y = yOffset - i2.Y;
-                    //g.DrawLine(map[i].pen, AB.pt1, AB.pt2);
 
                     // Do 3D (2.5D) render now ...
                     if (!topDown)
@@ -806,7 +846,7 @@ namespace GameTestBed
 
         static public PointF Normal(Line AB)
         {
-            return Normalise(new PointF(-(AB.pt2.Y - AB.pt1.Y), (AB.pt2.X - AB.pt1.X)));
+            return Normalise(new PointF((AB.pt2.Y - AB.pt1.Y), -(AB.pt2.X - AB.pt1.X)));
         }
 
         //
